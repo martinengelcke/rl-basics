@@ -191,7 +191,7 @@ def draw_frozen_lake_map(ax, map_desc):
     ax.set_yticks(np.arange(grid_size))
     ax.set_xticklabels([]) # Hide x-axis numbers
     ax.set_yticklabels([]) # Hide y-axis numbers
-    ax.grid(True, which='both', color='black', linewidth=1)
+    # ax.grid(True, which='both', color='black', linewidth=1) # Removed grid lines
     ax.set_aspect('equal', adjustable='box')
     ax.set_title("FrozenLake Map")
 
