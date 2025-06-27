@@ -175,6 +175,46 @@ visualize_policy(results['q_learning']['q_table'], "Q-learning", map_name="4x4")
 visualize_policy(results['sarsa']['q_table'], "SARSA", map_name="4x4")
 
 
+# --- Function to Draw FrozenLake Map ---
+def draw_frozen_lake_map(ax, map_desc):
+    """
+    Draws the FrozenLake map on a given matplotlib Axes object.
+
+    Args:
+        ax (matplotlib.axes.Axes): The axes object to draw on.
+        map_desc (list of str): Description of the map (e.g., ["SFFF", "FHFH", ...]).
+    """
+    grid_size = len(map_desc)
+    ax.set_xlim(-0.5, grid_size - 0.5)
+    ax.set_ylim(grid_size - 0.5, -0.5) # Inverted y-axis for matrix representation
+    ax.set_xticks(np.arange(grid_size))
+    ax.set_yticks(np.arange(grid_size))
+    ax.set_xticklabels([]) # Hide x-axis numbers
+    ax.set_yticklabels([]) # Hide y-axis numbers
+    ax.grid(True, which='both', color='black', linewidth=1)
+    ax.set_aspect('equal', adjustable='box')
+    ax.set_title("FrozenLake Map")
+
+    colors = {
+        'S': 'lightblue',
+        'F': 'lightgrey',
+        'H': 'black',
+        'G': 'lightgreen'
+    }
+    text_colors = {
+        'S': 'black',
+        'F': 'black',
+        'H': 'white',
+        'G': 'black'
+    }
+
+    for r, row_str in enumerate(map_desc):
+        for c, char in enumerate(row_str):
+            rect = patches.Rectangle((c - 0.5, r - 0.5), 1, 1, linewidth=1, edgecolor='black',
+                                     facecolor=colors.get(char, 'white'))
+            ax.add_patch(rect)
+            ax.text(c, r, char, ha="center", va="center", color=text_colors.get(char, 'black'), fontsize=10)
+
 # --- Q-value Heatmap Animation Function ---
 def create_q_value_comparison_animation(
     q_tables_history_algo1,
@@ -202,9 +242,15 @@ def create_q_value_comparison_animation(
 
     # import matplotlib.patches as patches # This line moved to top of file
 
-    fig, axes = plt.subplots(1, 2, figsize=(16, 8)) # Increased height for better grid display
+    fig, axes = plt.subplots(1, 3, figsize=(20, 8)) # Changed from 1,2 to 1,3 and adjusted figsize
 
-    # Determine global Q-value range for consistent color scaling
+    # Define the map description for FrozenLake 4x4
+    map_desc = ["SFFF", "FHFH", "FFFH", "HFFG"]
+    # Draw the FrozenLake map on the first subplot
+    draw_frozen_lake_map(axes[0], map_desc)
+
+    # Determine global Q-value range for consistent color scaling for heatmaps
+    # Use only heatmap axes (axes[1] and axes[2]) for Q-value related setup
     all_q_tables = q_tables_history_algo1 + q_tables_history_algo2
     global_min_q = np.min([np.min(q_table) for q_table in all_q_tables if q_table.size > 0])
     global_max_q = np.max([np.max(q_table) for q_table in all_q_tables if q_table.size > 0])
@@ -218,50 +264,48 @@ def create_q_value_comparison_animation(
 
     grid_size = int(np.sqrt(num_s)) # Assuming a square grid, e.g., 4 for 16 states
 
-    # Action to vertex calculation helper (as per plan)
-    # Action 0: Left, 1: Down, 2: Right, 3: Up
+    # Action to vertex calculation helper
     def get_triangle_vertices(col, row, action):
         center_x, center_y = col + 0.5, row + 0.5
-        if action == 3: # Up
-            return [(col, row), (col + 1, row), (center_x, center_y)]
-        elif action == 1: # Down
-            return [(center_x, center_y), (col, row + 1), (col + 1, row + 1)]
-        elif action == 0: # Left
-            return [(col, row + 1), (col, row), (center_x, center_y)]
-        elif action == 2: # Right
-            return [(center_x, center_y), (col + 1, row), (col + 1, row + 1)]
-        return [] # Should not happen
-
-    # Setup for axes
-    for i, ax in enumerate(axes):
-        ax.set_xlim(-0.5, grid_size - 0.5)
-        ax.set_ylim(grid_size - 0.5, -0.5) # Inverted y-axis
-        ax.set_xticks(np.arange(grid_size))
-        ax.set_yticks(np.arange(grid_size))
-        ax.set_xlabel("Column")
-        ax.set_ylabel("Row")
-        ax.set_aspect('equal', adjustable='box') # Ensure cells are square
-        ax.grid(True, which='both', color='grey', linewidth=0.5, linestyle='--')
+        if action == 3: # Up (North)
+            return [(col, row + 1), (col + 1, row + 1), (center_x, center_y)] # Pointing upwards in matrix (inverted y)
+        elif action == 1: # Down (South)
+            return [(col, row), (col + 1, row), (center_x, center_y)] # Pointing downwards in matrix (inverted y)
+        elif action == 0: # Left (West)
+            return [(col + 1, row), (col + 1, row + 1), (center_x, center_y)] # Pointing left
+        elif action == 2: # Right (East)
+            return [(col, row), (col, row + 1), (center_x, center_y)] # Pointing right
+        return []
 
 
-    # Add a single colorbar for the entire figure
-    # Create a ScalarMappable for the colorbar
+    # Setup for heatmap axes (axes[1] and axes[2])
+    for i, ax_heatmap in enumerate(axes[1:]): # Iterate only over heatmap axes
+        ax_heatmap.set_xlim(-0.5, grid_size - 0.5)
+        ax_heatmap.set_ylim(grid_size - 0.5, -0.5) # Inverted y-axis for matrix-like display
+        ax_heatmap.set_xticks(np.arange(grid_size))
+        ax_heatmap.set_yticks(np.arange(grid_size))
+        ax_heatmap.set_xlabel("Column")
+        ax_heatmap.set_ylabel("Row")
+        ax_heatmap.set_aspect('equal', adjustable='box')
+        ax_heatmap.grid(True, which='both', color='grey', linewidth=0.5, linestyle='--')
+
+    # Add a single colorbar for the heatmaps
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array([]) # You need to set an array for the mappable, though it's not used directly for drawing here
-    fig.colorbar(sm, ax=axes.ravel().tolist(), label="Q-value", aspect=30, pad=0.02)
+    sm.set_array([])
+    # Position colorbar relative to the heatmap axes
+    fig.colorbar(sm, ax=axes[1:].ravel().tolist(), label="Q-value", aspect=30, pad=0.02, location='right')
 
-    artists_ax0 = [] # These lists are not strictly necessary with blit=False and full clear/redraw
-    artists_ax1 = []
 
     def update(frame_number):
         q_table_snapshot1 = q_tables_history_algo1[frame_number]
         q_table_snapshot2 = q_tables_history_algo2[frame_number]
 
-        axes[0].clear()
+        # Clear only heatmap axes
         axes[1].clear()
+        axes[2].clear()
 
-        # Re-apply settings after clearing
-        for i_ax_clear, ax_clear in enumerate(axes):
+        # Re-apply settings after clearing for heatmap axes
+        for i_ax_clear, ax_clear in enumerate(axes[1:]): # Iterate only over heatmap axes
             ax_clear.set_xlim(-0.5, grid_size - 0.5)
             ax_clear.set_ylim(grid_size - 0.5, -0.5)
             ax_clear.set_xticks(np.arange(grid_size))
@@ -270,39 +314,43 @@ def create_q_value_comparison_animation(
             ax_clear.set_ylabel("Row")
             ax_clear.set_aspect('equal', adjustable='box')
             ax_clear.grid(True, which='both', color='grey', linewidth=0.5, linestyle='--')
-            if i_ax_clear == 0:
+            if i_ax_clear == 0: # This is now axes[1]
                  ax_clear.set_title(f"{algo1_name} Q-values at Episode {(frame_number + 1) * q_table_log_interval}")
-            else:
+            else: # This is now axes[2]
                  ax_clear.set_title(f"{algo2_name} Q-values at Episode {(frame_number + 1) * q_table_log_interval}")
 
-        current_artists_ax0 = []
-        current_artists_ax1 = []
+        current_artists_ax1 = [] # For axes[1]
+        current_artists_ax2 = [] # For axes[2]
 
-        # Process Algorithm 1
+        # Process Algorithm 1 (on axes[1])
         for state in range(num_s):
             row = state // grid_size
             col = state % grid_size
             for action in range(num_a):
                 q_value = q_table_snapshot1[state, action]
-                vertices = get_triangle_vertices(col, row, action)
-                color = cmap(norm(q_value))
-                polygon = patches.Polygon(vertices, closed=True, facecolor=color, edgecolor='black', linewidth=0.5)
-                axes[0].add_patch(polygon)
-                current_artists_ax0.append(polygon)
-
-        # Process Algorithm 2
-        for state in range(num_s):
-            row = state // grid_size
-            col = state % grid_size
-            for action in range(num_a):
-                q_value = q_table_snapshot2[state, action]
-                vertices = get_triangle_vertices(col, row, action)
+                # Note: Original get_triangle_vertices might need y-coordinates flipped if using matrix indexing (row 0 at top)
+                # The current get_triangle_vertices is adjusted for inverted y-axis (ylim(bottom, top))
+                vertices = get_triangle_vertices(col, row, action) # row, col from matrix perspective
                 color = cmap(norm(q_value))
                 polygon = patches.Polygon(vertices, closed=True, facecolor=color, edgecolor='black', linewidth=0.5)
                 axes[1].add_patch(polygon)
                 current_artists_ax1.append(polygon)
 
-        return current_artists_ax0 + current_artists_ax1
+        # Process Algorithm 2 (on axes[2])
+        for state in range(num_s):
+            row = state // grid_size
+            col = state % grid_size
+            for action in range(num_a):
+                q_value = q_table_snapshot2[state, action]
+                vertices = get_triangle_vertices(col, row, action) # row, col from matrix perspective
+                color = cmap(norm(q_value))
+                polygon = patches.Polygon(vertices, closed=True, facecolor=color, edgecolor='black', linewidth=0.5)
+                axes[2].add_patch(polygon)
+                current_artists_ax2.append(polygon)
+
+        # The artists lists are mainly for blitting, which is False.
+        # If blit=True, these would need to be returned.
+        return current_artists_ax1 + current_artists_ax2
 
     ani = animation.FuncAnimation(fig, update, frames=len(q_tables_history_algo1), interval=200, blit=False)
     try:
