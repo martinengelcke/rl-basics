@@ -3,6 +3,7 @@ import gymnasium as gym  # OpenAI Gymnasium for the environment
 import numpy as np      # NumPy for numerical operations (Q-table)
 import matplotlib.pyplot as plt # Matplotlib for plotting results
 import matplotlib.animation as animation
+import matplotlib.patches as patches # Moved import to top for convention
 
 # --- Environment Initialization ---
 # Same environment for both algorithms
@@ -199,53 +200,111 @@ def create_q_value_comparison_animation(
         q_tables_history_algo1 = q_tables_history_algo1[:min_len]
         q_tables_history_algo2 = q_tables_history_algo2[:min_len]
 
-    fig, axes = plt.subplots(1, 2, figsize=(16, 6)) # 1 row, 2 columns for side-by-side plots
+    # import matplotlib.patches as patches # This line moved to top of file
+
+    fig, axes = plt.subplots(1, 2, figsize=(16, 8)) # Increased height for better grid display
 
     # Determine global Q-value range for consistent color scaling
     all_q_tables = q_tables_history_algo1 + q_tables_history_algo2
     global_min_q = np.min([np.min(q_table) for q_table in all_q_tables if q_table.size > 0])
     global_max_q = np.max([np.max(q_table) for q_table in all_q_tables if q_table.size > 0])
 
-    if global_min_q == global_max_q:
+    if global_min_q == global_max_q: # Avoid issues with norm if all values are same
         global_min_q -= 0.1
         global_max_q += 0.1
 
-    # Initialize heatmaps
-    heatmap1 = axes[0].imshow(q_tables_history_algo1[0], cmap='viridis', aspect='auto', vmin=global_min_q, vmax=global_max_q)
-    heatmap2 = axes[1].imshow(q_tables_history_algo2[0], cmap='viridis', aspect='auto', vmin=global_min_q, vmax=global_max_q)
+    norm = plt.Normalize(vmin=global_min_q, vmax=global_max_q)
+    cmap = plt.cm.viridis
 
-    # Setup for axes[0] (Algorithm 1)
-    axes[0].set_xlabel("Action")
-    axes[0].set_ylabel("State")
-    axes[0].set_xticks(np.arange(num_a))
-    axes[0].set_yticks(np.arange(num_s))
-    axes[0].set_xticklabels(np.arange(num_a))
-    axes[0].set_yticklabels(np.arange(num_s))
+    grid_size = int(np.sqrt(num_s)) # Assuming a square grid, e.g., 4 for 16 states
 
-    # Setup for axes[1] (Algorithm 2)
-    axes[1].set_xlabel("Action")
-    axes[1].set_ylabel("State")
-    axes[1].set_xticks(np.arange(num_a))
-    axes[1].set_yticks(np.arange(num_s))
-    axes[1].set_xticklabels(np.arange(num_a))
-    axes[1].set_yticklabels(np.arange(num_s))
+    # Action to vertex calculation helper (as per plan)
+    # Action 0: Left, 1: Down, 2: Right, 3: Up
+    def get_triangle_vertices(col, row, action):
+        center_x, center_y = col + 0.5, row + 0.5
+        if action == 3: # Up
+            return [(col, row), (col + 1, row), (center_x, center_y)]
+        elif action == 1: # Down
+            return [(center_x, center_y), (col, row + 1), (col + 1, row + 1)]
+        elif action == 0: # Left
+            return [(col, row + 1), (col, row), (center_x, center_y)]
+        elif action == 2: # Right
+            return [(center_x, center_y), (col + 1, row), (col + 1, row + 1)]
+        return [] # Should not happen
+
+    # Setup for axes
+    for i, ax in enumerate(axes):
+        ax.set_xlim(-0.5, grid_size - 0.5)
+        ax.set_ylim(grid_size - 0.5, -0.5) # Inverted y-axis
+        ax.set_xticks(np.arange(grid_size))
+        ax.set_yticks(np.arange(grid_size))
+        ax.set_xlabel("Column")
+        ax.set_ylabel("Row")
+        ax.set_aspect('equal', adjustable='box') # Ensure cells are square
+        ax.grid(True, which='both', color='grey', linewidth=0.5, linestyle='--')
+
 
     # Add a single colorbar for the entire figure
-    fig.colorbar(heatmap1, ax=axes, label="Q-value", aspect=30, pad=0.02) # 'ax=axes' applies it to the figure
+    # Create a ScalarMappable for the colorbar
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([]) # You need to set an array for the mappable, though it's not used directly for drawing here
+    fig.colorbar(sm, ax=axes.ravel().tolist(), label="Q-value", aspect=30, pad=0.02)
+
+    artists_ax0 = [] # These lists are not strictly necessary with blit=False and full clear/redraw
+    artists_ax1 = []
 
     def update(frame_number):
         q_table_snapshot1 = q_tables_history_algo1[frame_number]
         q_table_snapshot2 = q_tables_history_algo2[frame_number]
 
-        heatmap1.set_data(q_table_snapshot1)
-        axes[0].set_title(f"{algo1_name} Q-values at Episode {(frame_number + 1) * q_table_log_interval}")
+        axes[0].clear()
+        axes[1].clear()
 
-        heatmap2.set_data(q_table_snapshot2)
-        axes[1].set_title(f"{algo2_name} Q-values at Episode {(frame_number + 1) * q_table_log_interval}")
+        # Re-apply settings after clearing
+        for i_ax_clear, ax_clear in enumerate(axes):
+            ax_clear.set_xlim(-0.5, grid_size - 0.5)
+            ax_clear.set_ylim(grid_size - 0.5, -0.5)
+            ax_clear.set_xticks(np.arange(grid_size))
+            ax_clear.set_yticks(np.arange(grid_size))
+            ax_clear.set_xlabel("Column")
+            ax_clear.set_ylabel("Row")
+            ax_clear.set_aspect('equal', adjustable='box')
+            ax_clear.grid(True, which='both', color='grey', linewidth=0.5, linestyle='--')
+            if i_ax_clear == 0:
+                 ax_clear.set_title(f"{algo1_name} Q-values at Episode {(frame_number + 1) * q_table_log_interval}")
+            else:
+                 ax_clear.set_title(f"{algo2_name} Q-values at Episode {(frame_number + 1) * q_table_log_interval}")
 
-        return [heatmap1, heatmap2]
+        current_artists_ax0 = []
+        current_artists_ax1 = []
 
-    ani = animation.FuncAnimation(fig, update, frames=len(q_tables_history_algo1), interval=200, blit=True)
+        # Process Algorithm 1
+        for state in range(num_s):
+            row = state // grid_size
+            col = state % grid_size
+            for action in range(num_a):
+                q_value = q_table_snapshot1[state, action]
+                vertices = get_triangle_vertices(col, row, action)
+                color = cmap(norm(q_value))
+                polygon = patches.Polygon(vertices, closed=True, facecolor=color, edgecolor='black', linewidth=0.5)
+                axes[0].add_patch(polygon)
+                current_artists_ax0.append(polygon)
+
+        # Process Algorithm 2
+        for state in range(num_s):
+            row = state // grid_size
+            col = state % grid_size
+            for action in range(num_a):
+                q_value = q_table_snapshot2[state, action]
+                vertices = get_triangle_vertices(col, row, action)
+                color = cmap(norm(q_value))
+                polygon = patches.Polygon(vertices, closed=True, facecolor=color, edgecolor='black', linewidth=0.5)
+                axes[1].add_patch(polygon)
+                current_artists_ax1.append(polygon)
+
+        return current_artists_ax0 + current_artists_ax1
+
+    ani = animation.FuncAnimation(fig, update, frames=len(q_tables_history_algo1), interval=200, blit=False)
     try:
         ani.save(filename, writer='pillow', fps=5)
         print(f"\nComparison Q-value heatmap animation saved as {filename}")
@@ -256,7 +315,6 @@ def create_q_value_comparison_animation(
         plt.close(fig)
 
 # Create and save Q-value animations
-# Check if both histories are available before creating the comparison animation
 if results['q_learning']['q_table_history'] and results['sarsa']['q_table_history']:
     create_q_value_comparison_animation(
         results['q_learning']['q_table_history'],
