@@ -44,6 +44,8 @@ q_table = np.zeros((num_states, num_actions)) # Initialize Q-table with all zero
 # --- Training Data Storage ---
 # List to store total rewards obtained in each episode. Used for plotting learning progress.
 rewards_all_episodes = []
+q_table_history = [] # To store Q-table snapshots for animation
+q_table_log_interval = 500 # Log Q-table every 500 episodes
 
 # --- Q-learning Algorithm: Training Loop ---
 # The agent learns by interacting with the environment over many episodes.
@@ -100,6 +102,10 @@ for episode in range(num_episodes):
 
   # Store the total reward for the current episode
   rewards_all_episodes.append(rewards_current_episode)
+
+  # Log Q-table for animation
+  if (episode + 1) % q_table_log_interval == 0:
+    q_table_history.append(q_table.copy()) # Append a copy to avoid modifications
 
 # --- Post-Training Analysis ---
 
@@ -172,6 +178,62 @@ def visualize_policy(q_table_to_plot, map_name="4x4"):
 # Visualize the learned policy for the 4x4 map
 visualize_policy(q_table, map_name="4x4")
 
+# --- Q-value Heatmap Animation Function ---
+import matplotlib.animation as animation
+
+def create_q_value_animation(q_tables_history, num_s, num_a, filename="q_value_heatmap.gif"):
+    """
+    Creates and saves a GIF animation of the Q-table evolving over training.
+    Args:
+      q_tables_history (list): A list of Q-tables (numpy arrays) captured at intervals during training.
+      num_s (int): Number of states.
+      num_a (int): Number of actions.
+      filename (str): The name of the file to save the GIF to.
+    """
+    if not q_tables_history:
+        print("Q-table history is empty. Cannot create animation.")
+        return
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    # Determine global min and max Q-values for consistent color scaling
+    global_min_q = np.min([np.min(q_table) for q_table in q_tables_history])
+    global_max_q = np.max([np.max(q_table) for q_table in q_tables_history])
+
+    # Initialize the heatmap with the first Q-table
+    heatmap = ax.imshow(q_tables_history[0], cmap='viridis', aspect='auto', vmin=global_min_q, vmax=global_max_q)
+
+    plt.colorbar(heatmap, ax=ax, label="Q-value")
+    ax.set_xlabel("Action")
+    ax.set_ylabel("State")
+    ax.set_xticks(np.arange(num_a))
+    ax.set_yticks(np.arange(num_s))
+    ax.set_xticklabels(np.arange(num_a)) # Or specific action labels if available
+    ax.set_yticklabels(np.arange(num_s)) # Or specific state labels if available
+
+    def update(frame_number):
+        """Update function for the animation."""
+        q_table_snapshot = q_tables_history[frame_number]
+        heatmap.set_data(q_table_snapshot)
+        ax.set_title(f"Q-values at Episode {(frame_number + 1) * q_table_log_interval}")
+        return [heatmap]
+
+    # Create the animation
+    # Interval is the delay between frames in milliseconds.
+    ani = animation.FuncAnimation(fig, update, frames=len(q_tables_history), interval=200, blit=True)
+
+    try:
+        # Save the animation as a GIF
+        # The 'writer' argument might need to be specified depending on the Matplotlib backend and available writers.
+        # Common writers include 'imagemagick', 'ffmpeg', or 'pillow'.
+        # If 'pillow' is installed, Matplotlib should be able to use it automatically for GIFs.
+        ani.save(filename, writer='pillow', fps=5) # Using Pillow writer
+        print(f"\nQ-value heatmap animation saved as {filename}")
+    except Exception as e:
+        print(f"Error saving animation: {e}")
+        print("You might need to install a writer like Pillow: pip install Pillow")
+    finally:
+        plt.close(fig) # Close the figure to free memory
+
 # --- Plotting Learning Progress ---
 
 # 1. Plot Raw Rewards per Episode
@@ -199,6 +261,12 @@ plt.savefig('moving_average_rewards.png') # Save the plot
 # plt.show() # Display the plot
 
 print("\nTraining finished. Plots saved as 'rewards_per_episode.png' and 'moving_average_rewards.png'.\n")
+
+# Create and save Q-value animation
+if q_table_history:
+    create_q_value_animation(q_table_history, num_states, num_actions, filename="q_values_evolution.gif")
+else:
+    print("No Q-table history was recorded, skipping animation.")
 
 # --- Testing the Learned Policy ---
 # After training, evaluate the performance of the learned policy by running it for a few episodes
