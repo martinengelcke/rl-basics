@@ -20,16 +20,16 @@ env = gym.make('FrozenLake-v1', map_name="4x4", is_slippery=False, render_mode=N
 # --- Q-learning Hyperparameters ---
 # These parameters control the learning process.
 alpha = 0.1          # Learning Rate (α): Determines how much new information overrides old information.
-                     # A high value means learning is fast but can be unstable.
-                     # A low value means learning is slow but can be more stable.
+          # A high value means learning is fast but can be unstable.
+          # A low value means learning is slow but can be more stable.
 gamma = 0.99         # Discount Factor (γ): Determines the importance of future rewards.
-                     # A value close to 0 makes the agent prioritize immediate rewards.
-                     # A value close to 1 makes the agent consider long-term rewards.
+          # A value close to 0 makes the agent prioritize immediate rewards.
+          # A value close to 1 makes the agent consider long-term rewards.
 epsilon = 1.0        # Initial Exploration Rate (ε): Probability of choosing a random action.
-                     # Starts high to encourage exploration of the environment.
+          # Starts high to encourage exploration of the environment.
 min_epsilon = 0.01   # Minimum Exploration Rate: Ensures some exploration even after many episodes.
 epsilon_decay_rate = 0.0001 # Decay Rate for Epsilon: Controls how quickly epsilon decreases.
-                     # Epsilon decays over episodes to shift from exploration to exploitation.
+          # Epsilon decays over episodes to shift from exploration to exploitation.
 num_episodes = 20000 # Number of Episodes: Total number of times the agent plays the game from start to finish.
 
 # --- Q-table Initialization ---
@@ -48,58 +48,58 @@ rewards_all_episodes = []
 # --- Q-learning Algorithm: Training Loop ---
 # The agent learns by interacting with the environment over many episodes.
 for episode in range(num_episodes):
-    # Reset the environment at the beginning of each episode to get the initial state.
-    # `state` is the agent's current position on the grid.
-    # `info` can contain additional diagnostic information (not used here).
-    state, info = env.reset()
+  # Reset the environment at the beginning of each episode to get the initial state.
+  # `state` is the agent's current position on the grid.
+  # `info` can contain additional diagnostic information (not used here).
+  state, info = env.reset()
 
-    done = False      # True if the episode has ended (agent reached goal or hole)
-    truncated = False # True if the episode was ended prematurely (e.g., time limit, not applicable here for FrozenLake's default)
-    rewards_current_episode = 0 # Total reward obtained in the current episode
+  done = False      # True if the episode has ended (agent reached goal or hole)
+  truncated = False # True if the episode was ended prematurely (e.g., time limit, not applicable here for FrozenLake's default)
+  rewards_current_episode = 0 # Total reward obtained in the current episode
 
-    # Loop within an episode: continues until the agent reaches a terminal state (goal or hole)
-    while not done and not truncated:
-        # --- Action Selection: Exploration vs. Exploitation ---
-        # Epsilon-greedy strategy:
-        # - With probability epsilon, choose a random action (exploration).
-        # - With probability (1 - epsilon), choose the action with the highest Q-value for the current state (exploitation).
-        if np.random.uniform(0, 1) < epsilon:
-            action = env.action_space.sample()  # Explore: select a random action
-        else:
-            action = np.argmax(q_table[state, :]) # Exploit: select the best known action
+  # Loop within an episode: continues until the agent reaches a terminal state (goal or hole)
+  while not done and not truncated:
+    # --- Action Selection: Exploration vs. Exploitation ---
+    # Epsilon-greedy strategy:
+    # - With probability epsilon, choose a random action (exploration).
+    # - With probability (1 - epsilon), choose the action with the highest Q-value for the current state (exploitation).
+    if np.random.uniform(0, 1) < epsilon:
+      action = env.action_space.sample()  # Explore: select a random action
+    else:
+      action = np.argmax(q_table[state, :]) # Exploit: select the best known action
 
-        # --- Agent-Environment Interaction ---
-        # Take the chosen action and observe the outcome.
-        # - new_state: The agent's new position after taking the action.
-        # - reward: The reward received for taking the action in the current state.
-        #           (e.g., 1 for reaching the goal, 0 otherwise in default FrozenLake).
-        # - done: Boolean indicating if the episode has ended.
-        # - truncated: Boolean indicating if the episode was cut short.
-        # - info: Additional information.
-        new_state, reward, done, truncated, info = env.step(action)
+    # --- Agent-Environment Interaction ---
+    # Take the chosen action and observe the outcome.
+    # - new_state: The agent's new position after taking the action.
+    # - reward: The reward received for taking the action in the current state.
+    #           (e.g., 1 for reaching the goal, 0 otherwise in default FrozenLake).
+    # - done: Boolean indicating if the episode has ended.
+    # - truncated: Boolean indicating if the episode was cut short.
+    # - info: Additional information.
+    new_state, reward, done, truncated, info = env.step(action)
 
-        # --- Q-value Update (Bellman Equation) ---
-        # This is the core of the Q-learning algorithm.
-        # Q(s, a) = Q(s, a) + α * [R(s,a) + γ * max_a'(Q(s', a')) - Q(s, a)]
-        # - Q(s, a): Current Q-value for the state-action pair.
-        # - R(s,a): Reward received after taking action 'a' in state 's'.
-        # - γ * max_a'(Q(s', a')): Discounted maximum Q-value for the new state 's''.
-        #                          This is the agent's estimate of the optimal future value.
-        # The update rule adjusts the Q-value based on the new experience.
-        q_table[state, action] = q_table[state, action] + alpha * \
-                                 (reward + gamma * np.max(q_table[new_state, :]) - q_table[state, action])
+    # --- Q-value Update (Bellman Equation) ---
+    # This is the core of the Q-learning algorithm.
+    # Q(s, a) = Q(s, a) + α * [R(s,a) + γ * max_a'(Q(s', a')) - Q(s, a)]
+    # - Q(s, a): Current Q-value for the state-action pair.
+    # - R(s,a): Reward received after taking action 'a' in state 's'.
+    # - γ * max_a'(Q(s', a')): Discounted maximum Q-value for the new state 's''.
+    #                          This is the agent's estimate of the optimal future value.
+    # The update rule adjusts the Q-value based on the new experience.
+    q_table[state, action] = q_table[state, action] + alpha * \
+                (reward + gamma * np.max(q_table[new_state, :]) - q_table[state, action])
 
-        # --- Transition to the New State ---
-        state = new_state
-        rewards_current_episode += reward
+    # --- Transition to the New State ---
+    state = new_state
+    rewards_current_episode += reward
 
-    # --- Epsilon Decay ---
-    # Decrease epsilon after each episode to reduce exploration and favor exploitation as learning progresses.
-    # An exponential decay formula is used here.
-    epsilon = min_epsilon + (1.0 - min_epsilon) * np.exp(-epsilon_decay_rate * episode)
+  # --- Epsilon Decay ---
+  # Decrease epsilon after each episode to reduce exploration and favor exploitation as learning progresses.
+  # An exponential decay formula is used here.
+  epsilon = min_epsilon + (1.0 - min_epsilon) * np.exp(-epsilon_decay_rate * episode)
 
-    # Store the total reward for the current episode
-    rewards_all_episodes.append(rewards_current_episode)
+  # Store the total reward for the current episode
+  rewards_all_episodes.append(rewards_current_episode)
 
 # --- Post-Training Analysis ---
 
@@ -113,61 +113,61 @@ rewards_per_thousand_episodes = np.split(np.array(rewards_all_episodes), num_epi
 count = 1000
 print("\n********Average reward per thousand episodes********\n")
 for r in rewards_per_thousand_episodes:
-    print(f"{count}: {str(sum(r / 1000))}")
-    count += 1000
+  print(f"{count}: {str(sum(r / 1000))}")
+  count += 1000
 
 # --- Policy Visualization Function ---
 def visualize_policy(q_table_to_plot, map_name="4x4"):
-    """
-    Visualizes the learned policy from the Q-table as a grid of actions.
-    Args:
-        q_table_to_plot (np.array): The Q-table containing learned values.
-        map_name (str): The name of the map ("4x4" or "8x8") to get grid description.
-    """
-    # FrozenLake map descriptions (S: Start, F: Frozen, H: Hole, G: Goal)
-    if map_name == "4x4":
-        desc = ["SFFF", "FHFH", "FFFH", "HFFG"]
-        grid_size = 4
-    elif map_name == "8x8": # Added for potential future use
-        desc = [
-            "SFFFFFFF", "FFFFFFFF", "FFFHFFFF", "FFFFFHFF",
-            "FFFHFFFF", "FHHFFFHF", "FHFFHFHF", "FFFHFFFG",
-        ]
-        grid_size = 8
-    else:
-        print("Warning: Map name not supported for detailed visualization. Using generic state numbers.")
-        # Fallback for unknown maps: just print best actions per state number
-        best_actions_fallback = np.argmax(q_table_to_plot, axis=1)
-        print("\nLearned Policy (best action for each state number):")
-        for s, a in enumerate(best_actions_fallback):
-            print(f"State {s}: Action {a}")
-        return
+  """
+  Visualizes the learned policy from the Q-table as a grid of actions.
+  Args:
+    q_table_to_plot (np.array): The Q-table containing learned values.
+    map_name (str): The name of the map ("4x4" or "8x8") to get grid description.
+  """
+  # FrozenLake map descriptions (S: Start, F: Frozen, H: Hole, G: Goal)
+  if map_name == "4x4":
+    desc = ["SFFF", "FHFH", "FFFH", "HFFG"]
+    grid_size = 4
+  elif map_name == "8x8": # Added for potential future use
+    desc = [
+      "SFFFFFFF", "FFFFFFFF", "FFFHFFFF", "FFFFFHFF",
+      "FFFHFFFF", "FHHFFFHF", "FHFFHFHF", "FFFHFFFG",
+    ]
+    grid_size = 8
+  else:
+    print("Warning: Map name not supported for detailed visualization. Using generic state numbers.")
+    # Fallback for unknown maps: just print best actions per state number
+    best_actions_fallback = np.argmax(q_table_to_plot, axis=1)
+    print("\nLearned Policy (best action for each state number):")
+    for s, a in enumerate(best_actions_fallback):
+      print(f"State {s}: Action {a}")
+    return
 
-    # Determine the best action for each state by finding the action with the max Q-value.
-    best_actions = np.argmax(q_table_to_plot, axis=1)
-    # Reshape the flat list of actions into the grid structure.
-    policy_grid = best_actions.reshape((grid_size, grid_size))
+  # Determine the best action for each state by finding the action with the max Q-value.
+  best_actions = np.argmax(q_table_to_plot, axis=1)
+  # Reshape the flat list of actions into the grid structure.
+  policy_grid = best_actions.reshape((grid_size, grid_size))
 
-    # Mapping actions (integers) to arrow symbols for better readability.
-    # 0: Left, 1: Down, 2: Right, 3: Up (standard in FrozenLake)
-    action_symbols = {0: '<', 1: 'v', 2: '>', 3: '^'}
+  # Mapping actions (integers) to arrow symbols for better readability.
+  # 0: Left, 1: Down, 2: Right, 3: Up (standard in FrozenLake)
+  action_symbols = {0: '<', 1: 'v', 2: '>', 3: '^'}
 
-    print("\nLearned Policy (best action for each state on the grid):")
-    print("S: Start, F: Frozen, H: Hole, G: Goal")
-    print("Actions: <: Left, v: Down, >: Right, ^: Up\n")
-    for i in range(grid_size):
-        row_str = ""
-        for j in range(grid_size):
-            state_index = i * grid_size + j # Calculate flat state index from grid coordinates
-            state_char = desc[i][j]
-            # For terminal states (Goal or Hole), just show the state character.
-            if state_char in "GH":
-                row_str += state_char + "  "
-            else:
-                # For other states, show the symbol for the best action.
-                action = policy_grid[i, j] # policy_grid uses (row, col) directly
-                row_str += action_symbols.get(action, '?') + "  " # Use '?' if action symbol not found
-        print(row_str)
+  print("\nLearned Policy (best action for each state on the grid):")
+  print("S: Start, F: Frozen, H: Hole, G: Goal")
+  print("Actions: <: Left, v: Down, >: Right, ^: Up\n")
+  for i in range(grid_size):
+    row_str = ""
+    for j in range(grid_size):
+      state_index = i * grid_size + j # Calculate flat state index from grid coordinates
+      state_char = desc[i][j]
+      # For terminal states (Goal or Hole), just show the state character.
+      if state_char in "GH":
+        row_str += state_char + "  "
+      else:
+        # For other states, show the symbol for the best action.
+        action = policy_grid[i, j] # policy_grid uses (row, col) directly
+        row_str += action_symbols.get(action, '?') + "  " # Use '?' if action symbol not found
+    print(row_str)
 
 # Visualize the learned policy for the 4x4 map
 visualize_policy(q_table, map_name="4x4")
@@ -209,20 +209,20 @@ total_test_rewards = 0
 successful_episodes = 0
 
 for ep in range(num_test_episodes):
-    state, info = env.reset()
-    done = False
-    truncated = False
-    episode_reward = 0
-    # print(f"Test Episode {ep+1}") # Uncomment for detailed test episode trace
-    while not done and not truncated:
-        action = np.argmax(q_table[state, :]) # Always choose the best action (exploitation)
-        new_state, reward, done, truncated, info = env.step(action)
-        # print(f"State: {state}, Action: {action}, New State: {new_state}, Reward: {reward}") # Uncomment for step details
-        state = new_state
-        episode_reward += reward
-    total_test_rewards += episode_reward
-    if episode_reward > 0: # Assuming reward > 0 means success (reaching the goal)
-        successful_episodes += 1
+  state, info = env.reset()
+  done = False
+  truncated = False
+  episode_reward = 0
+  # print(f"Test Episode {ep+1}") # Uncomment for detailed test episode trace
+  while not done and not truncated:
+    action = np.argmax(q_table[state, :]) # Always choose the best action (exploitation)
+    new_state, reward, done, truncated, info = env.step(action)
+    # print(f"State: {state}, Action: {action}, New State: {new_state}, Reward: {reward}") # Uncomment for step details
+    state = new_state
+    episode_reward += reward
+  total_test_rewards += episode_reward
+  if episode_reward > 0: # Assuming reward > 0 means success (reaching the goal)
+    successful_episodes += 1
 
 average_test_reward = total_test_rewards / num_test_episodes
 success_rate = successful_episodes / num_test_episodes
