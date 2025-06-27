@@ -2,300 +2,294 @@
 import gymnasium as gym  # OpenAI Gymnasium for the environment
 import numpy as np      # NumPy for numerical operations (Q-table)
 import matplotlib.pyplot as plt # Matplotlib for plotting results
+import matplotlib.animation as animation
 
 # --- Environment Initialization ---
-# Initialize the FrozenLake environment from Gymnasium.
-# 'FrozenLake-v1' is a classic reinforcement learning problem.
-# The agent controls the movement of a character in a grid world.
-# Some tiles are walkable, and others lead to falling into the water (hole).
-# One tile is the goal. The task is to navigate from a start tile to a goal tile.
-#
-# - map_name: "4x4" or "8x8" defines the grid size.
-# - is_slippery: If True, the agent may not always move in the intended direction (stochastic environment).
-#                If False, the movement is deterministic. We use False for easier debugging and verification.
-# - render_mode: None for no rendering during training (faster).
-#                Set to 'human' to visualize the agent's actions in real-time.
+# Same environment for both algorithms
 env = gym.make('FrozenLake-v1', map_name="4x4", is_slippery=False, render_mode=None)
+num_states = env.observation_space.n
+num_actions = env.action_space.n
 
-# --- Q-learning Hyperparameters ---
-# These parameters control the learning process.
-alpha = 0.1          # Learning Rate (α): Determines how much new information overrides old information.
-          # A high value means learning is fast but can be unstable.
-          # A low value means learning is slow but can be more stable.
-gamma = 0.99         # Discount Factor (γ): Determines the importance of future rewards.
-          # A value close to 0 makes the agent prioritize immediate rewards.
-          # A value close to 1 makes the agent consider long-term rewards.
-epsilon = 1.0        # Initial Exploration Rate (ε): Probability of choosing a random action.
-          # Starts high to encourage exploration of the environment.
-min_epsilon = 0.01   # Minimum Exploration Rate: Ensures some exploration even after many episodes.
-epsilon_decay_rate = 0.0001 # Decay Rate for Epsilon: Controls how quickly epsilon decreases.
-          # Epsilon decays over episodes to shift from exploration to exploitation.
-num_episodes = 20000 # Number of Episodes: Total number of times the agent plays the game from start to finish.
-
-# --- Q-table Initialization ---
-# The Q-table stores the Q-values for each state-action pair.
-# Q(s, a) represents the expected future reward for taking action 'a' in state 's'.
-# Dimensions: (number of states) x (number of actions).
-# Initialized to zeros, as we initially have no knowledge about the environment.
-num_states = env.observation_space.n    # Number of states in the environment (e.g., 16 for 4x4 grid)
-num_actions = env.action_space.n      # Number of possible actions (e.g., 4 for Left, Down, Right, Up)
-q_table = np.zeros((num_states, num_actions)) # Initialize Q-table with all zeros
-
-# --- Training Data Storage ---
-# List to store total rewards obtained in each episode. Used for plotting learning progress.
-rewards_all_episodes = []
-q_table_history = [] # To store Q-table snapshots for animation
+# --- Hyperparameters ---
+# Shared hyperparameters for both algorithms
+alpha = 0.1          # Learning Rate (α)
+gamma = 0.99         # Discount Factor (γ)
+epsilon_start = 1.0  # Initial Exploration Rate (ε)
+min_epsilon = 0.01   # Minimum Exploration Rate
+epsilon_decay_rate = 0.0001 # Decay Rate for Epsilon
+num_episodes = 20000 # Number of Episodes for each algorithm
 q_table_log_interval = 500 # Log Q-table every 500 episodes
 
-# --- Q-learning Algorithm: Training Loop ---
-# The agent learns by interacting with the environment over many episodes.
-for episode in range(num_episodes):
-  # Reset the environment at the beginning of each episode to get the initial state.
-  # `state` is the agent's current position on the grid.
-  # `info` can contain additional diagnostic information (not used here).
-  state, info = env.reset()
+# --- Data Storage for Q-learning and SARSA ---
+results = {
+    'q_learning': {
+        'q_table': np.zeros((num_states, num_actions)),
+        'rewards_all_episodes': [],
+        'q_table_history': []
+    },
+    'sarsa': {
+        'q_table': np.zeros((num_states, num_actions)),
+        'rewards_all_episodes': [],
+        'q_table_history': []
+    }
+}
 
-  done = False      # True if the episode has ended (agent reached goal or hole)
-  truncated = False # True if the episode was ended prematurely (e.g., time limit, not applicable here for FrozenLake's default)
-  rewards_current_episode = 0 # Total reward obtained in the current episode
+# --- Unified Training Function ---
+def train_agent(algorithm_name, q_table_to_train, rewards_list, q_history_list):
+    """
+    Trains an agent using either Q-learning or SARSA.
+    """
+    current_epsilon = epsilon_start # Reset epsilon for each training run
 
-  # Loop within an episode: continues until the agent reaches a terminal state (goal or hole)
-  while not done and not truncated:
-    # --- Action Selection: Exploration vs. Exploitation ---
-    # Epsilon-greedy strategy:
-    # - With probability epsilon, choose a random action (exploration).
-    # - With probability (1 - epsilon), choose the action with the highest Q-value for the current state (exploitation).
-    if np.random.uniform(0, 1) < epsilon:
-      action = env.action_space.sample()  # Explore: select a random action
-    else:
-      action = np.argmax(q_table[state, :]) # Exploit: select the best known action
+    for episode in range(num_episodes):
+        state, info = env.reset()
+        done = False
+        truncated = False
+        rewards_current_episode = 0
 
-    # --- Agent-Environment Interaction ---
-    # Take the chosen action and observe the outcome.
-    # - new_state: The agent's new position after taking the action.
-    # - reward: The reward received for taking the action in the current state.
-    #           (e.g., 1 for reaching the goal, 0 otherwise in default FrozenLake).
-    # - done: Boolean indicating if the episode has ended.
-    # - truncated: Boolean indicating if the episode was cut short.
-    # - info: Additional information.
-    new_state, reward, done, truncated, info = env.step(action)
+        # For SARSA, the first action needs to be chosen before the loop starts
+        if algorithm_name == 'sarsa':
+            if np.random.uniform(0, 1) < current_epsilon:
+                action = env.action_space.sample()
+            else:
+                action = np.argmax(q_table_to_train[state, :])
 
-    # --- Q-value Update (Bellman Equation) ---
-    # This is the core of the Q-learning algorithm.
-    # Q(s, a) = Q(s, a) + α * [R(s,a) + γ * max_a'(Q(s', a')) - Q(s, a)]
-    # - Q(s, a): Current Q-value for the state-action pair.
-    # - R(s,a): Reward received after taking action 'a' in state 's'.
-    # - γ * max_a'(Q(s', a')): Discounted maximum Q-value for the new state 's''.
-    #                          This is the agent's estimate of the optimal future value.
-    # The update rule adjusts the Q-value based on the new experience.
-    q_table[state, action] = q_table[state, action] + alpha * \
-                (reward + gamma * np.max(q_table[new_state, :]) - q_table[state, action])
+        while not done and not truncated:
+            if algorithm_name == 'q_learning':
+                # Action Selection for Q-learning (inside the loop)
+                if np.random.uniform(0, 1) < current_epsilon:
+                    action = env.action_space.sample()  # Explore
+                else:
+                    action = np.argmax(q_table_to_train[state, :]) # Exploit
+            # For SARSA, action is already chosen for the current state 's'
 
-    # --- Transition to the New State ---
-    state = new_state
-    rewards_current_episode += reward
+            new_state, reward, done, truncated, info = env.step(action)
+            rewards_current_episode += reward
 
-  # --- Epsilon Decay ---
-  # Decrease epsilon after each episode to reduce exploration and favor exploitation as learning progresses.
-  # An exponential decay formula is used here.
-  epsilon = min_epsilon + (1.0 - min_epsilon) * np.exp(-epsilon_decay_rate * episode)
+            if algorithm_name == 'q_learning':
+                # Q-learning update rule
+                q_table_to_train[state, action] = q_table_to_train[state, action] + alpha * \
+                    (reward + gamma * np.max(q_table_to_train[new_state, :]) - q_table_to_train[state, action])
+            elif algorithm_name == 'sarsa':
+                # Choose next_action for state new_state (s') using epsilon-greedy
+                if np.random.uniform(0, 1) < current_epsilon:
+                    next_action = env.action_space.sample() # Explore
+                else:
+                    next_action = np.argmax(q_table_to_train[new_state, :]) # Exploit
 
-  # Store the total reward for the current episode
-  rewards_all_episodes.append(rewards_current_episode)
+                # SARSA update rule: Q(s,a) = Q(s,a) + alpha * (R + gamma * Q(s',a') - Q(s,a))
+                q_table_to_train[state, action] = q_table_to_train[state, action] + alpha * \
+                    (reward + gamma * q_table_to_train[new_state, next_action] - q_table_to_train[state, action])
+                action = next_action # Important for SARSA: next action becomes current action for next step
 
-  # Log Q-table for animation
-  if (episode + 1) % q_table_log_interval == 0:
-    q_table_history.append(q_table.copy()) # Append a copy to avoid modifications
+            state = new_state
+
+        # Epsilon Decay
+        current_epsilon = min_epsilon + (epsilon_start - min_epsilon) * np.exp(-epsilon_decay_rate * episode)
+        rewards_list.append(rewards_current_episode)
+
+        if (episode + 1) % q_table_log_interval == 0:
+            q_history_list.append(q_table_to_train.copy())
+
+    print(f"\nTraining finished for {algorithm_name}.")
+
+
+# --- Train Q-learning Agent ---
+print("Starting Q-learning training...")
+train_agent(
+    'q_learning',
+    results['q_learning']['q_table'],
+    results['q_learning']['rewards_all_episodes'],
+    results['q_learning']['q_table_history']
+)
+
+# --- Train SARSA Agent ---
+print("\nStarting SARSA training...")
+train_agent(
+    'sarsa',
+    results['sarsa']['q_table'],
+    results['sarsa']['rewards_all_episodes'],
+    results['sarsa']['q_table_history']
+)
 
 # --- Post-Training Analysis ---
 
-# Print the learned Q-table (optional, can be large for complex environments)
-print("Learned Q-table:")
-print(q_table)
+for algo_name, data in results.items():
+    print(f"\n--- Results for {algo_name.upper()} ---")
+    print(f"Learned Q-table ({algo_name}):")
+    print(data['q_table'])
 
-# Calculate and print average reward per thousand episodes for a summary of learning progress.
-# This helps to see if the agent is consistently improving.
-rewards_per_thousand_episodes = np.split(np.array(rewards_all_episodes), num_episodes / 1000)
-count = 1000
-print("\n********Average reward per thousand episodes********\n")
-for r in rewards_per_thousand_episodes:
-  print(f"{count}: {str(sum(r / 1000))}")
-  count += 1000
+    rewards_per_thousand_episodes = np.split(np.array(data['rewards_all_episodes']), num_episodes / 1000)
+    count = 1000
+    print(f"\n********Average reward per thousand episodes ({algo_name})********\n")
+    for r in rewards_per_thousand_episodes:
+      print(f"{count}: {str(sum(r / 1000))}")
+      count += 1000
 
 # --- Policy Visualization Function ---
-def visualize_policy(q_table_to_plot, map_name="4x4"):
+def visualize_policy(q_table_to_plot, algorithm_name, map_name="4x4"):
   """
   Visualizes the learned policy from the Q-table as a grid of actions.
   Args:
     q_table_to_plot (np.array): The Q-table containing learned values.
+    algorithm_name (str): Name of the algorithm (e.g., "Q-learning", "SARSA").
     map_name (str): The name of the map ("4x4" or "8x8") to get grid description.
   """
-  # FrozenLake map descriptions (S: Start, F: Frozen, H: Hole, G: Goal)
   if map_name == "4x4":
     desc = ["SFFF", "FHFH", "FFFH", "HFFG"]
     grid_size = 4
-  elif map_name == "8x8": # Added for potential future use
-    desc = [
-      "SFFFFFFF", "FFFFFFFF", "FFFHFFFF", "FFFFFHFF",
-      "FFFHFFFF", "FHHFFFHF", "FHFFHFHF", "FFFHFFFG",
-    ]
+  elif map_name == "8x8":
+    desc = ["SFFFFFFF", "FFFFFFFF", "FFFHFFFF", "FFFFFHFF",
+            "FFFHFFFF", "FHHFFFHF", "FHFFHFHF", "FFFHFFFG"]
     grid_size = 8
   else:
-    print("Warning: Map name not supported for detailed visualization. Using generic state numbers.")
-    # Fallback for unknown maps: just print best actions per state number
+    print(f"Warning: Map name not supported for detailed visualization ({algorithm_name}). Using generic state numbers.")
     best_actions_fallback = np.argmax(q_table_to_plot, axis=1)
-    print("\nLearned Policy (best action for each state number):")
+    print(f"\nLearned Policy for {algorithm_name} (best action for each state number):")
     for s, a in enumerate(best_actions_fallback):
       print(f"State {s}: Action {a}")
     return
 
-  # Determine the best action for each state by finding the action with the max Q-value.
   best_actions = np.argmax(q_table_to_plot, axis=1)
-  # Reshape the flat list of actions into the grid structure.
   policy_grid = best_actions.reshape((grid_size, grid_size))
-
-  # Mapping actions (integers) to arrow symbols for better readability.
-  # 0: Left, 1: Down, 2: Right, 3: Up (standard in FrozenLake)
   action_symbols = {0: '<', 1: 'v', 2: '>', 3: '^'}
 
-  print("\nLearned Policy (best action for each state on the grid):")
+  print(f"\nLearned Policy for {algorithm_name.upper()} (best action for each state on the grid):")
   print("S: Start, F: Frozen, H: Hole, G: Goal")
   print("Actions: <: Left, v: Down, >: Right, ^: Up\n")
   for i in range(grid_size):
     row_str = ""
     for j in range(grid_size):
-      state_index = i * grid_size + j # Calculate flat state index from grid coordinates
+      state_index = i * grid_size + j
       state_char = desc[i][j]
-      # For terminal states (Goal or Hole), just show the state character.
       if state_char in "GH":
         row_str += state_char + "  "
       else:
-        # For other states, show the symbol for the best action.
-        action = policy_grid[i, j] # policy_grid uses (row, col) directly
-        row_str += action_symbols.get(action, '?') + "  " # Use '?' if action symbol not found
+        action = policy_grid[i, j]
+        row_str += action_symbols.get(action, '?') + "  "
     print(row_str)
 
-# Visualize the learned policy for the 4x4 map
-visualize_policy(q_table, map_name="4x4")
+# Visualize policies
+visualize_policy(results['q_learning']['q_table'], "Q-learning", map_name="4x4")
+visualize_policy(results['sarsa']['q_table'], "SARSA", map_name="4x4")
+
 
 # --- Q-value Heatmap Animation Function ---
-import matplotlib.animation as animation
-
-def create_q_value_animation(q_tables_history, num_s, num_a, filename="q_value_heatmap.gif"):
+def create_q_value_animation(q_tables_history, num_s, num_a, algorithm_name, filename_base="q_values_evolution"):
     """
     Creates and saves a GIF animation of the Q-table evolving over training.
-    Args:
-      q_tables_history (list): A list of Q-tables (numpy arrays) captured at intervals during training.
-      num_s (int): Number of states.
-      num_a (int): Number of actions.
-      filename (str): The name of the file to save the GIF to.
     """
     if not q_tables_history:
-        print("Q-table history is empty. Cannot create animation.")
+        print(f"Q-table history for {algorithm_name} is empty. Cannot create animation.")
         return
 
+    filename = f"{filename_base}_{algorithm_name.lower().replace('-', '_')}.gif"
     fig, ax = plt.subplots(figsize=(8, 6))
-    # Determine global min and max Q-values for consistent color scaling
-    global_min_q = np.min([np.min(q_table) for q_table in q_tables_history])
-    global_max_q = np.max([np.max(q_table) for q_table in q_tables_history])
+    global_min_q = np.min([np.min(q_table) for q_table in q_tables_history if q_table.size > 0])
+    global_max_q = np.max([np.max(q_table) for q_table in q_tables_history if q_table.size > 0])
 
-    # Initialize the heatmap with the first Q-table
+    # Handle case where all Q-values are the same (e.g., all zeros initially)
+    if global_min_q == global_max_q:
+        global_min_q -= 0.1 # Avoid zero range for color bar
+        global_max_q += 0.1
+
+
     heatmap = ax.imshow(q_tables_history[0], cmap='viridis', aspect='auto', vmin=global_min_q, vmax=global_max_q)
-
     plt.colorbar(heatmap, ax=ax, label="Q-value")
     ax.set_xlabel("Action")
     ax.set_ylabel("State")
     ax.set_xticks(np.arange(num_a))
     ax.set_yticks(np.arange(num_s))
-    ax.set_xticklabels(np.arange(num_a)) # Or specific action labels if available
-    ax.set_yticklabels(np.arange(num_s)) # Or specific state labels if available
+    ax.set_xticklabels(np.arange(num_a))
+    ax.set_yticklabels(np.arange(num_s))
 
     def update(frame_number):
-        """Update function for the animation."""
         q_table_snapshot = q_tables_history[frame_number]
         heatmap.set_data(q_table_snapshot)
-        ax.set_title(f"Q-values at Episode {(frame_number + 1) * q_table_log_interval}")
+        ax.set_title(f"{algorithm_name} Q-values at Episode {(frame_number + 1) * q_table_log_interval}")
         return [heatmap]
 
-    # Create the animation
-    # Interval is the delay between frames in milliseconds.
     ani = animation.FuncAnimation(fig, update, frames=len(q_tables_history), interval=200, blit=True)
-
     try:
-        # Save the animation as a GIF
-        # The 'writer' argument might need to be specified depending on the Matplotlib backend and available writers.
-        # Common writers include 'imagemagick', 'ffmpeg', or 'pillow'.
-        # If 'pillow' is installed, Matplotlib should be able to use it automatically for GIFs.
-        ani.save(filename, writer='pillow', fps=5) # Using Pillow writer
-        print(f"\nQ-value heatmap animation saved as {filename}")
+        ani.save(filename, writer='pillow', fps=5)
+        print(f"\n{algorithm_name} Q-value heatmap animation saved as {filename}")
     except Exception as e:
-        print(f"Error saving animation: {e}")
+        print(f"Error saving {algorithm_name} animation: {e}")
         print("You might need to install a writer like Pillow: pip install Pillow")
     finally:
-        plt.close(fig) # Close the figure to free memory
+        plt.close(fig)
+
+# Create and save Q-value animations
+for algo_name, data in results.items():
+    if data['q_table_history']:
+        create_q_value_animation(data['q_table_history'], num_states, num_actions, algo_name)
+    else:
+        print(f"No Q-table history was recorded for {algo_name}, skipping animation.")
+
 
 # --- Plotting Learning Progress ---
+plt.figure(figsize=(14, 7))
 
-# 1. Plot Raw Rewards per Episode
-# This plot shows the reward obtained in each individual episode.
-# It can be noisy, but gives a direct look at performance fluctuations.
-plt.figure(figsize=(12, 6))
-plt.plot(rewards_all_episodes)
+# 1. Plot Raw Rewards per Episode (Q-learning vs SARSA)
+plt.subplot(1, 2, 1) # 1 row, 2 columns, 1st subplot
+plt.plot(results['q_learning']['rewards_all_episodes'], label='Q-learning', alpha=0.7)
+plt.plot(results['sarsa']['rewards_all_episodes'], label='SARSA', alpha=0.7)
 plt.xlabel('Episode')
 plt.ylabel('Reward')
 plt.title('Rewards per Episode (Raw)')
-plt.savefig('rewards_per_episode.png') # Save the plot as an image file
-# plt.show() # Display the plot (can be commented out if running in a non-GUI environment)
+plt.legend()
+plt.grid(True)
 
-# 2. Plot Moving Average of Rewards
-# This plot smooths out the raw rewards by averaging over a window of episodes (e.g., 100).
-# It helps to visualize the underlying learning trend more clearly.
+# 2. Plot Moving Average of Rewards (Q-learning vs SARSA)
+plt.subplot(1, 2, 2) # 1 row, 2 columns, 2nd subplot
 moving_avg_window = 100
-moving_avg_rewards = np.convolve(rewards_all_episodes, np.ones(moving_avg_window)/moving_avg_window, mode='valid')
-plt.figure(figsize=(12, 6))
-plt.plot(range(moving_avg_window -1, num_episodes), moving_avg_rewards) # Adjust x-axis for 'valid' mode
+q_learning_moving_avg = np.convolve(results['q_learning']['rewards_all_episodes'], np.ones(moving_avg_window)/moving_avg_window, mode='valid')
+sarsa_moving_avg = np.convolve(results['sarsa']['rewards_all_episodes'], np.ones(moving_avg_window)/moving_avg_window, mode='valid')
+
+plt.plot(range(moving_avg_window -1, num_episodes), q_learning_moving_avg, label='Q-learning (Avg)')
+plt.plot(range(moving_avg_window -1, num_episodes), sarsa_moving_avg, label='SARSA (Avg)')
 plt.xlabel(f'Episode (averaged over {moving_avg_window} episodes)')
 plt.ylabel('Average Reward')
-plt.title('Moving Average of Rewards per Episode')
-plt.savefig('moving_average_rewards.png') # Save the plot
-# plt.show() # Display the plot
+plt.title('Moving Average of Rewards')
+plt.legend()
+plt.grid(True)
 
-print("\nTraining finished. Plots saved as 'rewards_per_episode.png' and 'moving_average_rewards.png'.\n")
+plt.tight_layout() # Adjust layout to prevent overlapping titles/labels
+plt.savefig('rewards_comparison.png')
+print("\nTraining finished. Combined rewards plot saved as 'rewards_comparison.png'.\n")
 
-# Create and save Q-value animation
-if q_table_history:
-    create_q_value_animation(q_table_history, num_states, num_actions, filename="q_values_evolution.gif")
-else:
-    print("No Q-table history was recorded, skipping animation.")
 
-# --- Testing the Learned Policy ---
-# After training, evaluate the performance of the learned policy by running it for a few episodes
-# without exploration (i.e., always choosing the best action according to the Q-table).
-print("Testing learned policy...")
-num_test_episodes = 100 # Number of episodes to test the policy
-total_test_rewards = 0
-successful_episodes = 0
+# --- Testing the Learned Policies ---
+def test_policy(q_table_to_test, algorithm_name):
+    print(f"\nTesting learned policy for {algorithm_name.upper()}...")
+    num_test_episodes = 100
+    total_test_rewards = 0
+    successful_episodes = 0
 
-for ep in range(num_test_episodes):
-  state, info = env.reset()
-  done = False
-  truncated = False
-  episode_reward = 0
-  # print(f"Test Episode {ep+1}") # Uncomment for detailed test episode trace
-  while not done and not truncated:
-    action = np.argmax(q_table[state, :]) # Always choose the best action (exploitation)
-    new_state, reward, done, truncated, info = env.step(action)
-    # print(f"State: {state}, Action: {action}, New State: {new_state}, Reward: {reward}") # Uncomment for step details
-    state = new_state
-    episode_reward += reward
-  total_test_rewards += episode_reward
-  if episode_reward > 0: # Assuming reward > 0 means success (reaching the goal)
-    successful_episodes += 1
+    for ep in range(num_test_episodes):
+        state, info = env.reset()
+        done = False
+        truncated = False
+        episode_reward = 0
+        while not done and not truncated:
+            action = np.argmax(q_table_to_test[state, :])
+            new_state, reward, done, truncated, info = env.step(action)
+            state = new_state
+            episode_reward += reward
+        total_test_rewards += episode_reward
+        if episode_reward > 0:
+            successful_episodes += 1
 
-average_test_reward = total_test_rewards / num_test_episodes
-success_rate = successful_episodes / num_test_episodes
-print(f"Average reward over {num_test_episodes} test episodes: {average_test_reward:.2f}")
-print(f"Success rate (reaching goal) over {num_test_episodes} test episodes: {success_rate:.2%}")
+    average_test_reward = total_test_rewards / num_test_episodes
+    success_rate = successful_episodes / num_test_episodes
+    print(f"Results for {algorithm_name.upper()}:")
+    print(f"  Average reward over {num_test_episodes} test episodes: {average_test_reward:.2f}")
+    print(f"  Success rate (reaching goal) over {num_test_episodes} test episodes: {success_rate:.2%}")
+    return average_test_reward, success_rate
 
-# Close the environment (good practice, especially if rendering was enabled)
+# Test both policies
+test_policy(results['q_learning']['q_table'], "Q-learning")
+test_policy(results['sarsa']['q_table'], "SARSA")
+
+# Close the environment
 env.close()
