@@ -175,56 +175,99 @@ visualize_policy(results['sarsa']['q_table'], "SARSA", map_name="4x4")
 
 
 # --- Q-value Heatmap Animation Function ---
-def create_q_value_animation(q_tables_history, num_s, num_a, algorithm_name, filename_base="q_values_evolution"):
+def create_q_value_comparison_animation(
+    q_tables_history_algo1,
+    q_tables_history_algo2,
+    num_s,
+    num_a,
+    algo1_name,
+    algo2_name,
+    filename="q_values_evolution_comparison.gif"
+):
     """
-    Creates and saves a GIF animation of the Q-table evolving over training.
+    Creates and saves a GIF animation comparing the Q-table evolution of two algorithms side-by-side.
     """
-    if not q_tables_history:
-        print(f"Q-table history for {algorithm_name} is empty. Cannot create animation.")
+    if not q_tables_history_algo1:
+        print(f"Q-table history for {algo1_name} is empty. Cannot create animation.")
         return
+    if not q_tables_history_algo2:
+        print(f"Q-table history for {algo2_name} is empty. Cannot create animation.")
+        return
+    if len(q_tables_history_algo1) != len(q_tables_history_algo2):
+        print("Warning: Q-table history lengths differ. Animation will be truncated to the shorter history.")
+        min_len = min(len(q_tables_history_algo1), len(q_tables_history_algo2))
+        q_tables_history_algo1 = q_tables_history_algo1[:min_len]
+        q_tables_history_algo2 = q_tables_history_algo2[:min_len]
 
-    filename = f"{filename_base}_{algorithm_name.lower().replace('-', '_')}.gif"
-    fig, ax = plt.subplots(figsize=(8, 6))
-    global_min_q = np.min([np.min(q_table) for q_table in q_tables_history if q_table.size > 0])
-    global_max_q = np.max([np.max(q_table) for q_table in q_tables_history if q_table.size > 0])
+    fig, axes = plt.subplots(1, 2, figsize=(16, 6)) # 1 row, 2 columns for side-by-side plots
 
-    # Handle case where all Q-values are the same (e.g., all zeros initially)
+    # Determine global Q-value range for consistent color scaling
+    all_q_tables = q_tables_history_algo1 + q_tables_history_algo2
+    global_min_q = np.min([np.min(q_table) for q_table in all_q_tables if q_table.size > 0])
+    global_max_q = np.max([np.max(q_table) for q_table in all_q_tables if q_table.size > 0])
+
     if global_min_q == global_max_q:
-        global_min_q -= 0.1 # Avoid zero range for color bar
+        global_min_q -= 0.1
         global_max_q += 0.1
 
+    # Initialize heatmaps
+    heatmap1 = axes[0].imshow(q_tables_history_algo1[0], cmap='viridis', aspect='auto', vmin=global_min_q, vmax=global_max_q)
+    heatmap2 = axes[1].imshow(q_tables_history_algo2[0], cmap='viridis', aspect='auto', vmin=global_min_q, vmax=global_max_q)
 
-    heatmap = ax.imshow(q_tables_history[0], cmap='viridis', aspect='auto', vmin=global_min_q, vmax=global_max_q)
-    plt.colorbar(heatmap, ax=ax, label="Q-value")
-    ax.set_xlabel("Action")
-    ax.set_ylabel("State")
-    ax.set_xticks(np.arange(num_a))
-    ax.set_yticks(np.arange(num_s))
-    ax.set_xticklabels(np.arange(num_a))
-    ax.set_yticklabels(np.arange(num_s))
+    # Setup for axes[0] (Algorithm 1)
+    axes[0].set_xlabel("Action")
+    axes[0].set_ylabel("State")
+    axes[0].set_xticks(np.arange(num_a))
+    axes[0].set_yticks(np.arange(num_s))
+    axes[0].set_xticklabels(np.arange(num_a))
+    axes[0].set_yticklabels(np.arange(num_s))
+
+    # Setup for axes[1] (Algorithm 2)
+    axes[1].set_xlabel("Action")
+    axes[1].set_ylabel("State")
+    axes[1].set_xticks(np.arange(num_a))
+    axes[1].set_yticks(np.arange(num_s))
+    axes[1].set_xticklabels(np.arange(num_a))
+    axes[1].set_yticklabels(np.arange(num_s))
+
+    # Add a single colorbar for the entire figure
+    fig.colorbar(heatmap1, ax=axes, label="Q-value", aspect=30, pad=0.02) # 'ax=axes' applies it to the figure
 
     def update(frame_number):
-        q_table_snapshot = q_tables_history[frame_number]
-        heatmap.set_data(q_table_snapshot)
-        ax.set_title(f"{algorithm_name} Q-values at Episode {(frame_number + 1) * q_table_log_interval}")
-        return [heatmap]
+        q_table_snapshot1 = q_tables_history_algo1[frame_number]
+        q_table_snapshot2 = q_tables_history_algo2[frame_number]
 
-    ani = animation.FuncAnimation(fig, update, frames=len(q_tables_history), interval=200, blit=True)
+        heatmap1.set_data(q_table_snapshot1)
+        axes[0].set_title(f"{algo1_name} Q-values at Episode {(frame_number + 1) * q_table_log_interval}")
+
+        heatmap2.set_data(q_table_snapshot2)
+        axes[1].set_title(f"{algo2_name} Q-values at Episode {(frame_number + 1) * q_table_log_interval}")
+
+        return [heatmap1, heatmap2]
+
+    ani = animation.FuncAnimation(fig, update, frames=len(q_tables_history_algo1), interval=200, blit=True)
     try:
         ani.save(filename, writer='pillow', fps=5)
-        print(f"\n{algorithm_name} Q-value heatmap animation saved as {filename}")
+        print(f"\nComparison Q-value heatmap animation saved as {filename}")
     except Exception as e:
-        print(f"Error saving {algorithm_name} animation: {e}")
+        print(f"Error saving comparison animation: {e}")
         print("You might need to install a writer like Pillow: pip install Pillow")
     finally:
         plt.close(fig)
 
 # Create and save Q-value animations
-for algo_name, data in results.items():
-    if data['q_table_history']:
-        create_q_value_animation(data['q_table_history'], num_states, num_actions, algo_name)
-    else:
-        print(f"No Q-table history was recorded for {algo_name}, skipping animation.")
+# Check if both histories are available before creating the comparison animation
+if results['q_learning']['q_table_history'] and results['sarsa']['q_table_history']:
+    create_q_value_comparison_animation(
+        results['q_learning']['q_table_history'],
+        results['sarsa']['q_table_history'],
+        num_states,
+        num_actions,
+        "Q-learning",
+        "SARSA"
+    )
+else:
+    print("Skipping comparison animation as Q-table history for one or both algorithms is missing.")
 
 
 # --- Plotting Learning Progress ---
