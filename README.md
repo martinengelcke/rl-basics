@@ -27,16 +27,16 @@ Key components:
 
 ## Setup and Installation
 
-1.  **Clone the repository (if applicable) or ensure you have the files.**
-2.  **Create a virtual environment (recommended):**
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-    ```
-3.  **Install dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+1. **Clone the repository (if applicable) or ensure you have the files.**
+2. **Create a virtual environment (recommended):**
+  ```bash
+  python -m venv venv
+  source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+  ```
+3. **Install dependencies:**
+  ```bash
+  pip install -r requirements.txt
+  ```
 
 ## How to Run
 
@@ -47,12 +47,12 @@ python frozen_lake_q_learning.py
 ```
 
 The script will:
-1.  Train the Q-learning agent on the FrozenLake environment.
-2.  Print the learned Q-table to the console.
-3.  Print the average reward achieved per thousand episodes during training.
-4.  Display a text-based visualization of the learned policy on the 4x4 grid.
-5.  Save two plots: `rewards_per_episode.png` (raw rewards) and `moving_average_rewards.png` (smoothed rewards) in the current directory.
-6.  Test the learned policy and print the average reward and success rate over a number of test episodes.
+1. Train the Q-learning agent on the FrozenLake environment.
+2. Print the learned Q-table to the console.
+3. Print the average reward achieved per thousand episodes during training.
+4. Display a text-based visualization of the learned policy on the 4x4 grid.
+5. Save two plots: `rewards_per_episode.png` (raw rewards) and `moving_average_rewards.png` (smoothed rewards) in the current directory.
+6. Test the learned policy and print the average reward and success rate over a number of test episodes.
 
 ## Output Example (Policy Visualization)
 
