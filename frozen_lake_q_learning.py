@@ -25,17 +25,19 @@ results = {
     'q_learning': {
         'q_table': np.zeros((num_states, num_actions)),
         'rewards_all_episodes': [],
-        'q_table_history': []
+        'q_table_history': [],
+        'epsilon_history': []
     },
     'sarsa': {
         'q_table': np.zeros((num_states, num_actions)),
         'rewards_all_episodes': [],
-        'q_table_history': []
+        'q_table_history': [],
+        'epsilon_history': []
     }
 }
 
 # --- Unified Training Function ---
-def train_agent(algorithm_name, q_table_to_train, rewards_list, q_history_list):
+def train_agent(algorithm_name, q_table_to_train, rewards_list, q_history_list, epsilon_history_list):
     """
     Trains an agent using either Q-learning or SARSA.
     """
@@ -87,6 +89,7 @@ def train_agent(algorithm_name, q_table_to_train, rewards_list, q_history_list):
         # Epsilon Decay
         current_epsilon = min_epsilon + (epsilon_start - min_epsilon) * np.exp(-epsilon_decay_rate * episode)
         rewards_list.append(rewards_current_episode)
+        epsilon_history_list.append(current_epsilon) # Store epsilon value
 
         if (episode + 1) % q_table_log_interval == 0:
             q_history_list.append(q_table_to_train.copy())
@@ -100,7 +103,8 @@ train_agent(
     'q_learning',
     results['q_learning']['q_table'],
     results['q_learning']['rewards_all_episodes'],
-    results['q_learning']['q_table_history']
+    results['q_learning']['q_table_history'],
+    results['q_learning']['epsilon_history']
 )
 
 # --- Train SARSA Agent ---
@@ -109,7 +113,8 @@ train_agent(
     'sarsa',
     results['sarsa']['q_table'],
     results['sarsa']['rewards_all_episodes'],
-    results['sarsa']['q_table_history']
+    results['sarsa']['q_table_history'],
+    results['sarsa']['epsilon_history']
 )
 
 # --- Post-Training Analysis ---
@@ -156,6 +161,12 @@ else:
 # ... (visualization code removed, handled by viz.plot_learning_progress) ...
 viz.plot_learning_progress(results, num_episodes)
 
+# Plot epsilon decay
+viz.plot_epsilon_decay(
+    results['q_learning']['epsilon_history'],
+    results['sarsa']['epsilon_history'],
+    num_episodes
+)
 
 # --- Testing the Learned Policies ---
 def test_policy(q_table_to_test, algorithm_name):
