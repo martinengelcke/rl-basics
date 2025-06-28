@@ -266,32 +266,33 @@ def create_q_value_comparison_animation(
 
     # Action to vertex calculation helper
     def get_triangle_vertices(col, row, action): # col, row are cell indices (center of cell in plot coords)
-        # Original calculation assumed (col,row) is top-left of a 1x1 cell.
-        # Vertices were like: center_x_orig, center_y_orig = col + 0.5, row + 0.5
-        # For Up: [(col, row + 1), (col + 1, row + 1), (center_x_orig, center_y_orig)]
-        # We need to shift all these by (-0.5, -0.5) to align with cell centered at (col,row).
+        # Corrected triangle orientations
+        # Action mapping: 0: Left, 1: Down, 2: Right, 3: Up
+        # y-axis is inverted: smaller y is UP, larger y is DOWN
+        # x-axis is standard: smaller x is LEFT, larger x is RIGHT
+        # Cell center is (col, row) in plot coordinates. Cell spans [col-0.5, col+0.5] and [row-0.5, row+0.5].
 
         half = 0.5
-        if action == 3: # Up (North) - Triangle points towards smaller y (up on inverted y-axis)
-            # Base at bottom edge of cell, apex at center of cell
-            # Original: [(col, row + 1), (col + 1, row + 1), (col + 0.5, row + 0.5)]
-            # Shifted:  [(col - 0.5, row + 0.5), (col + 0.5, row + 0.5), (col, row)]
-            return [(col - half, row + half), (col + half, row + half), (col, row)]
-        elif action == 1: # Down (South) - Triangle points towards larger y (down on inverted y-axis)
-            # Base at top edge of cell, apex at center of cell
-            # Original: [(col, row), (col + 1, row), (col + 0.5, row + 0.5)]
-            # Shifted:  [(col - 0.5, row - 0.5), (col + 0.5, row - 0.5), (col, row)]
+        if action == 3: # Up (North) - Triangle should be at the TOP of the cell, pointing UP (towards smaller y)
+            # Base is top edge of cell, apex is center.
+            # Top edge y-coordinate: row - 0.5
+            # Vertices: [(col - 0.5, row - 0.5), (col + 0.5, row - 0.5), (col, row)]
             return [(col - half, row - half), (col + half, row - half), (col, row)]
-        elif action == 0: # Left (West) - Triangle points towards smaller x
-            # Base at right edge of cell, apex at center of cell
-            # Original: [(col + 1, row), (col + 1, row + 1), (col + 0.5, row + 0.5)]
-            # Shifted:  [(col + 0.5, row - 0.5), (col + 0.5, row + 0.5), (col, row)]
-            return [(col + half, row - half), (col + half, row + half), (col, row)]
-        elif action == 2: # Right (East) - Triangle points towards larger x
-            # Base at left edge of cell, apex at center of cell
-            # Original: [(col, row), (col, row + 1), (col + 0.5, row + 0.5)]
-            # Shifted:  [(col - 0.5, row - 0.5), (col - 0.5, row + 0.5), (col, row)]
+        elif action == 1: # Down (South) - Triangle should be at the BOTTOM of the cell, pointing DOWN (towards larger y)
+            # Base is bottom edge of cell, apex is center.
+            # Bottom edge y-coordinate: row + 0.5
+            # Vertices: [(col - 0.5, row + 0.5), (col + 0.5, row + 0.5), (col, row)]
+            return [(col - half, row + half), (col + half, row + half), (col, row)]
+        elif action == 0: # Left (West) - Triangle should be at the LEFT of the cell, pointing LEFT (towards smaller x)
+            # Base is left edge of cell, apex is center.
+            # Left edge x-coordinate: col - 0.5
+            # Vertices: [(col - 0.5, row - 0.5), (col - 0.5, row + 0.5), (col, row)]
             return [(col - half, row - half), (col - half, row + half), (col, row)]
+        elif action == 2: # Right (East) - Triangle should be at the RIGHT of the cell, pointing RIGHT (towards larger x)
+            # Base is right edge of cell, apex is center.
+            # Right edge x-coordinate: col + 0.5
+            # Vertices: [(col + 0.5, row - 0.5), (col + 0.5, row + 0.5), (col, row)]
+            return [(col + half, row - half), (col + half, row + half), (col, row)]
         return []
 
 
