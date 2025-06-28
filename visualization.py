@@ -222,20 +222,10 @@ def plot_learning_progress(results, num_episodes, moving_avg_window=100):
         num_episodes (int): Total number of training episodes.
         moving_avg_window (int): Window size for the moving average.
     """
-    plt.figure(figsize=(14, 7))
+    plt.figure(figsize=(10, 7)) # Adjusted figure size for a single plot
 
-    # 1. Plot Raw Rewards per Episode (Q-learning vs SARSA)
-    plt.subplot(1, 2, 1)
-    plt.plot(results['q_learning']['rewards_all_episodes'], label='Q-learning', alpha=0.7)
-    plt.plot(results['sarsa']['rewards_all_episodes'], label='SARSA', alpha=0.7)
-    plt.xlabel('Episode')
-    plt.ylabel('Reward')
-    plt.title('Rewards per Episode (Raw)')
-    plt.legend()
-    plt.grid(True)
-
-    # 2. Plot Moving Average of Rewards (Q-learning vs SARSA)
-    plt.subplot(1, 2, 2)
+    # Plot Moving Average of Rewards (Q-learning vs SARSA)
+    # plt.subplot(1, 1, 1) # This is now the only plot
     q_learning_moving_avg = np.convolve(results['q_learning']['rewards_all_episodes'], np.ones(moving_avg_window)/moving_avg_window, mode='valid')
     sarsa_moving_avg = np.convolve(results['sarsa']['rewards_all_episodes'], np.ones(moving_avg_window)/moving_avg_window, mode='valid')
 
@@ -243,11 +233,11 @@ def plot_learning_progress(results, num_episodes, moving_avg_window=100):
     plt.plot(range(moving_avg_window -1, num_episodes), sarsa_moving_avg, label='SARSA (Avg)')
     plt.xlabel(f'Episode (averaged over {moving_avg_window} episodes)')
     plt.ylabel('Average Reward')
-    plt.title('Moving Average of Rewards')
+    plt.title('Moving Average of Rewards Comparison') # Updated title
     plt.legend()
     plt.grid(True)
 
     plt.tight_layout()
     plt.savefig('rewards_comparison.png')
-    print("\nTraining finished. Combined rewards plot saved as 'rewards_comparison.png'.\n")
+    print("\nTraining finished. Moving average rewards plot saved as 'rewards_comparison.png'.\n")
     plt.close() # Close the figure after saving
