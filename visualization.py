@@ -241,3 +241,39 @@ def plot_learning_progress(results, num_episodes, moving_avg_window=100):
     plt.savefig('rewards_comparison.png')
     print("\nTraining finished. Moving average rewards plot saved as 'rewards_comparison.png'.\n")
     plt.close() # Close the figure after saving
+
+# --- Plotting Epsilon Decay ---
+def plot_epsilon_decay(epsilon_history_q_learning, epsilon_history_sarsa, num_episodes):
+    """
+    Plots the epsilon decay for Q-learning and SARSA algorithms.
+    Args:
+        epsilon_history_q_learning (list): List of epsilon values for Q-learning over episodes.
+        epsilon_history_sarsa (list): List of epsilon values for SARSA over episodes.
+        num_episodes (int): Total number of training episodes.
+    """
+    plt.figure(figsize=(10, 7))
+    episodes = range(num_episodes)
+
+    plt.plot(episodes, epsilon_history_q_learning, label='Q-learning Epsilon')
+    # Since epsilon decay is the same for both, we can plot it once if they are identical
+    # or plot SARSA's if it could potentially differ in a different setup.
+    # For this project, they are the same.
+    if epsilon_history_q_learning != epsilon_history_sarsa:
+        plt.plot(episodes, epsilon_history_sarsa, label='SARSA Epsilon', linestyle='--')
+    else:
+        # If they are the same, we can just note it in the label or plot only one.
+        # For clarity, let's assume they could be different and plot Q-learning's.
+        # The problem states epsilon is the same, so only one line is strictly needed.
+        # However, the plan asks for two lines if different. Given the current code structure,
+        # they will be identical. So, plotting one and labeling it generically or plotting both
+        # (which will overlap) are options. Let's plot Q-learning and mention it covers both if same.
+        pass # Q-learning line already plotted
+
+    plt.title('Epsilon Decay Over Episodes')
+    plt.xlabel('Episode')
+    plt.ylabel('Epsilon Value')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig('epsilon_decay.png')
+    print("\nEpsilon decay plot saved as 'epsilon_decay.png'.\n")
+    plt.close()

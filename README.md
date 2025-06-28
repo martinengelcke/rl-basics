@@ -38,6 +38,7 @@ Here, `Q(s', a')` is the Q-value of the specific action `a'` that the agent actu
 - `rewards_comparison.png`: Plot generated after running the script, showing a comparison of raw rewards per episode and moving average of rewards for both Q-learning and SARSA.
 - `q_values_evolution_q_learning.gif`: Animation showing the evolution of the Q-table for the Q-learning agent during training.
 - `q_values_evolution_sarsa.gif`: Animation showing the evolution of the Q-table for the SARSA agent during training.
+- `epsilon_decay.png`: Plot generated after running the script, showing the epsilon decay over episodes for both algorithms.
 
 ## Setup and Installation
 
@@ -68,7 +69,8 @@ The script will:
 5. Display text-based visualizations of the learned policies for both Q-learning and SARSA on the 4x4 grid.
 6. Save a comparative plot: `rewards_comparison.png` (showing raw and smoothed rewards for both algorithms).
 7. Save GIF animations of Q-table evolution: `q_values_evolution_q_learning.gif` and `q_values_evolution_sarsa.gif`.
-8. Test the learned policies for both algorithms and print their average reward and success rate over a number of test episodes.
+ 8. Save a plot showing the epsilon decay curve: `epsilon_decay.png`.
+ 9. Test the learned policies for both algorithms and print their average reward and success rate over a number of test episodes.
 
 ## Output Example (Policy Visualization)
 
