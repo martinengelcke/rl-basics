@@ -265,16 +265,33 @@ def create_q_value_comparison_animation(
     grid_size = int(np.sqrt(num_s)) # Assuming a square grid, e.g., 4 for 16 states
 
     # Action to vertex calculation helper
-    def get_triangle_vertices(col, row, action):
-        center_x, center_y = col + 0.5, row + 0.5
-        if action == 3: # Up (North)
-            return [(col, row + 1), (col + 1, row + 1), (center_x, center_y)] # Pointing upwards in matrix (inverted y)
-        elif action == 1: # Down (South)
-            return [(col, row), (col + 1, row), (center_x, center_y)] # Pointing downwards in matrix (inverted y)
-        elif action == 0: # Left (West)
-            return [(col + 1, row), (col + 1, row + 1), (center_x, center_y)] # Pointing left
-        elif action == 2: # Right (East)
-            return [(col, row), (col, row + 1), (center_x, center_y)] # Pointing right
+    def get_triangle_vertices(col, row, action): # col, row are cell indices (center of cell in plot coords)
+        # Original calculation assumed (col,row) is top-left of a 1x1 cell.
+        # Vertices were like: center_x_orig, center_y_orig = col + 0.5, row + 0.5
+        # For Up: [(col, row + 1), (col + 1, row + 1), (center_x_orig, center_y_orig)]
+        # We need to shift all these by (-0.5, -0.5) to align with cell centered at (col,row).
+
+        half = 0.5
+        if action == 3: # Up (North) - Triangle points towards smaller y (up on inverted y-axis)
+            # Base at bottom edge of cell, apex at center of cell
+            # Original: [(col, row + 1), (col + 1, row + 1), (col + 0.5, row + 0.5)]
+            # Shifted:  [(col - 0.5, row + 0.5), (col + 0.5, row + 0.5), (col, row)]
+            return [(col - half, row + half), (col + half, row + half), (col, row)]
+        elif action == 1: # Down (South) - Triangle points towards larger y (down on inverted y-axis)
+            # Base at top edge of cell, apex at center of cell
+            # Original: [(col, row), (col + 1, row), (col + 0.5, row + 0.5)]
+            # Shifted:  [(col - 0.5, row - 0.5), (col + 0.5, row - 0.5), (col, row)]
+            return [(col - half, row - half), (col + half, row - half), (col, row)]
+        elif action == 0: # Left (West) - Triangle points towards smaller x
+            # Base at right edge of cell, apex at center of cell
+            # Original: [(col + 1, row), (col + 1, row + 1), (col + 0.5, row + 0.5)]
+            # Shifted:  [(col + 0.5, row - 0.5), (col + 0.5, row + 0.5), (col, row)]
+            return [(col + half, row - half), (col + half, row + half), (col, row)]
+        elif action == 2: # Right (East) - Triangle points towards larger x
+            # Base at left edge of cell, apex at center of cell
+            # Original: [(col, row), (col, row + 1), (col + 0.5, row + 0.5)]
+            # Shifted:  [(col - 0.5, row - 0.5), (col - 0.5, row + 0.5), (col, row)]
+            return [(col - half, row - half), (col - half, row + half), (col, row)]
         return []
 
 
