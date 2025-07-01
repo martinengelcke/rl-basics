@@ -132,14 +132,14 @@ def create_q_value_comparison_animation(
 
   def get_triangle_vertices(col, row, action):
     half = 0.5
-    if action == 3: # Up
-      return [(col - half, row + half), (col + half, row + half), (col, row - half)]
-    elif action == 1: # Down
-      return [(col - half, row - half), (col + half, row - half), (col, row + half)]
-    elif action == 0: # Left
-      return [(col + half, row - half), (col + half, row + half), (col - half, row)]
-    elif action == 2: # Right
-      return [(col - half, row - half), (col - half, row + half), (col + half, row)]
+    if action == 3:
+        return [(col - half, row - half), (col + half, row - half), (col, row)]
+    elif action == 1:
+        return [(col - half, row + half), (col + half, row + half), (col, row)]
+    elif action == 0:
+        return [(col - half, row - half), (col - half, row + half), (col, row)]
+    elif action == 2:
+        return [(col + half, row - half), (col + half, row + half), (col, row)]
     return []
 
 
