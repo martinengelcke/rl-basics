@@ -136,12 +136,6 @@ viz.visualize_policy(results['q_learning']['q_table'], "Q-learning", map_name="4
 viz.visualize_policy(results['sarsa']['q_table'], "SARSA", map_name="4x4")
 
 
-# --- Function to Draw FrozenLake Map ---
-# ... (visualization code removed, handled by viz.draw_frozen_lake_map) ...
-
-# --- Q-value Heatmap Animation Function ---
-# ... (visualization code removed, handled by viz.create_q_value_comparison_animation) ...
-
 # Create and save Q-value animations
 if results['q_learning']['q_table_history'] and results['sarsa']['q_table_history']:
   viz.create_q_value_comparison_animation(
@@ -157,8 +151,6 @@ else:
   print("Skipping comparison animation as Q-table history for one or both algorithms is missing.")
 
 
-# --- Plotting Learning Progress ---
-# ... (visualization code removed, handled by viz.plot_learning_progress) ...
 viz.plot_learning_progress(results, num_episodes)
 
 # Plot epsilon decay
